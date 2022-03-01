@@ -1,0 +1,14 @@
+# FROM php:7.4-alpine
+
+# RUN apk add --no-cache --virtual deps $PHPIZE_DEPS \
+#   && pecl install swoole-4.4.5 \
+#   && docker-php-ext-install pdo_mysql \
+#   && docker-php-ext-enable swoole 
+
+FROM ryanknu/php:8.0.7
+
+RUN apk add --no-cache --virtual deps $PHPIZE_DEPS \
+  && pecl install swoole-4.6.7 \
+  && docker-php-ext-install pdo_mysql \
+  && docker-php-ext-enable swoole 
+  

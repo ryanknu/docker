@@ -1,0 +1,12 @@
+FROM composer AS builder
+RUN composer global require robmorgan/phinx laminas/laminas-db --ignore-platform-reqs
+
+FROM php:7.4-alpine
+ENV PHINX_CONFIG /phinx/phinx.php
+WORKDIR /app
+RUN docker-php-ext-install -j$(nproc) pdo_mysql
+COPY --from=builder /tmp /phinx
+COPY entrypoint.sh /bin/entrypoint
+COPY phinx.php /phinx/phinx.php
+RUN chmod +x /bin/entrypoint
+ENTRYPOINT ["/bin/entrypoint"]

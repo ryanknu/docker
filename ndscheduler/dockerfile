@@ -1,0 +1,31 @@
+FROM alpine:latest
+
+MAINTAINER Ryan Knuesel <ryan.knuesel@gmail.com>
+
+RUN apk add py3-virtualenv git
+
+RUN virtualenv /mnt/scheduler && \
+    . /mnt/scheduler/bin/activate && \
+    pip install -e git+https://github.com/Nextdoor/ndscheduler.git#egg=ndscheduler
+RUN echo "requests" > /mnt/scheduler/src/ndscheduler/simple_scheduler/requirements.txt
+RUN virtualenv /mnt/scheduler && \
+    . /mnt/scheduler/bin/activate && \
+    pip install -r /mnt/scheduler/src/ndscheduler/simple_scheduler/requirements.txt
+
+# Add apns.pem
+RUN echo "# Please fill in this file with your apns pem" > /mnt/scheduler/apns.pem
+# Add run_scheduler shell script
+RUN printf "#!/bin/sh                                                  \n\
+                                                                       \n\
+source /mnt/scheduler/bin/activate && NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings python /mnt/scheduler/src/ndscheduler/simple_scheduler/scheduler.py" > /mnt/scheduler/bin/run_scheduler
+# Edit scheduler.py to not contain awesome job
+RUN printf "\"\"\"Run the scheduler process.\"\"\"\n\
+\n\
+from ndscheduler.server import server\n\
+\n\
+\n\
+if __name__ == \"__main__\":\n\
+    server.SchedulerServer.run()" > /mnt/scheduler/src/ndscheduler/simple_scheduler/scheduler.py
+
+RUN chmod 755 /mnt/scheduler/bin/run_scheduler
+CMD ["/mnt/scheduler/bin/run_scheduler"]

@@ -1,0 +1,50 @@
+# RK: My PHP image is already on alpine, has GMP support, and contains the
+#     php-docker-ext-enable script which helps modify the INI files to 
+#     enable extensions, so, I'm starting from that and adding notebook to it.
+#     Conversely, the jupyter/base-notebook image doesn't run as root and has
+#     quite a few other pitfalls that weren't necessarily important to me, so,
+#     I am running everything as root. All I care about is having a working
+#     jupyter notebook, best practices don't matter to me.
+
+FROM ryanknu/php:8.0
+
+# TODO: collect dependencies into two lines, ones we need to keep, ones
+#       we can remove.
+
+# 1. install php-zmq, cleaning up as much as possible.
+# 2. install python, libffi, py-pip, and notebook, then clean up as much as possible.
+# 3. RUN jupyter notebook --generate-config
+# 4. RUN jupyter-php-installer.phar, and remove phars. -vvv not necessary.
+
+# Install PHP-ZMQ
+# php-zmq can't be installed via pecl because the latest published version
+# contains a compiler error.
+RUN apk add --no-cache --virtual dev $PHPIZE_DEPS git czmq-dev \
+    && git clone git://github.com/mkoppanen/php-zmq.git \
+    && cd php-zmq \
+    && phpize && ./configure \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -fr php-zmq \
+    && docker-php-ext-enable zmq \
+    && apk del dev \
+    && apk add czmq
+
+# Install Jupyter Notebook
+RUN apk add --no-cache --virtual dev $PHPIZE_DEPS czmq-dev python3-dev libffi-dev \
+    && apk add python3 py-pip \
+    && pip install notebook \
+    && apk del dev
+
+# If you do not do this, the server will reset all connections.
+RUN jupyter notebook --generate-config
+
+# jupyter-php-installer does not work with composer >= 2
+RUN wget https://getcomposer.org/download/1.10.19/composer.phar
+RUN chmod +x composer.phar
+RUN wget https://litipk.github.io/Jupyter-PHP-Installer/dist/jupyter-php-installer.phar
+RUN php jupyter-php-installer.phar install -vvv
+
+EXPOSE 8888
+CMD ["jupyter", "notebook", "--allow-root", "--ip=0.0.0.0"]
